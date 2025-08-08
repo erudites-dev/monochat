@@ -135,18 +135,6 @@ impl SendCommandBody for KeepAlivePing {
         3
     }
 }
-#[derive(Debug, Serialize)]
-struct KeepAlivePong;
-
-impl SendCommandBody for KeepAlivePong {
-    fn command(&self) -> i64 {
-        10000
-    }
-
-    fn version(&self) -> i64 {
-        3
-    }
-}
 
 #[derive(Debug, Deserialize)]
 struct ChatMessage {
@@ -222,13 +210,6 @@ pub async fn new(url: impl IntoUrl) -> Result<impl MessageStream> {
                 sleep(Duration::from_secs(30)).await;
                 // this is wacky, but it theoretically should work :)
                 if KeepAlivePing
-                    .send(channel_id.as_str(), &mut send)
-                    .await
-                    .is_err()
-                {
-                    break;
-                }
-                if KeepAlivePong
                     .send(channel_id.as_str(), &mut send)
                     .await
                     .is_err()
