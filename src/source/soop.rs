@@ -10,7 +10,7 @@ use anyhow::{Result, anyhow};
 use futures::{SinkExt, StreamExt};
 use reqwest::{Client, IntoUrl, header::CONTENT_TYPE};
 use serde::Deserialize;
-use tokio::{spawn, time::sleep};
+use tokio::time::sleep;
 use tokio_tungstenite::tungstenite::{self, ClientRequestBuilder};
 
 use crate::{Message, MessageStream};
@@ -174,14 +174,14 @@ pub async fn new(aqua_url: impl IntoUrl) -> Result<impl MessageStream> {
                 }
             }
         })
-        .take_until(spawn(async move {
+        .take_until(async move {
             while is_alive.load(Ordering::Relaxed) {
                 sleep(Duration::from_secs(6)).await;
                 if sender.send(write_keepalive().into()).await.is_err() {
                     break;
                 }
             }
-        }))
+        })
         .boxed();
     Ok(message_stream)
 }

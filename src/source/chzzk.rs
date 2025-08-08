@@ -5,6 +5,7 @@ use futures::{Sink, SinkExt, StreamExt, stream};
 use reqwest::{Client, IntoUrl};
 use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
 use serde_json::value::RawValue;
+use tokio::time::{Duration, sleep};
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::MessageStream;
@@ -122,6 +123,31 @@ impl SendCommandBody for Auth {
     }
 }
 
+#[derive(Debug, Serialize)]
+struct KeepAlivePing;
+
+impl SendCommandBody for KeepAlivePing {
+    fn command(&self) -> i64 {
+        0
+    }
+
+    fn version(&self) -> i64 {
+        3
+    }
+}
+#[derive(Debug, Serialize)]
+struct KeepAlivePong;
+
+impl SendCommandBody for KeepAlivePong {
+    fn command(&self) -> i64 {
+        10000
+    }
+
+    fn version(&self) -> i64 {
+        3
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct ChatMessage {
     #[serde(rename = "profile", deserialize_with = "deserialize_sender")]
@@ -165,7 +191,7 @@ impl<'a> RecvCommandBody<'a> for Vec<ChatMessage> {}
 /// live in the form of `https://api.chzzk.naver.com/polling/v3.1/channels/<uuid>/live-status`
 pub async fn new(url: impl IntoUrl) -> Result<impl MessageStream> {
     let ChatChannelId {
-        chat_channel_id: ref channel_id,
+        chat_channel_id: channel_id,
     } = get::<ChatChannelId>(url, &[]).await?;
     let AccessToken { access_token } = get::<AccessToken>(
         "https://comm-api.game.naver.com/nng_main/v1/chats/access-token",
@@ -174,7 +200,7 @@ pub async fn new(url: impl IntoUrl) -> Result<impl MessageStream> {
     .await?;
     let (socket, _) = tokio_tungstenite::connect_async("wss://kr-ss1.chat.naver.com/chat").await?;
     let (mut send, recv) = socket.split();
-    Auth::new(access_token).send(channel_id, &mut send).await?;
+    Auth::new(access_token).send(&channel_id, &mut send).await?;
     let stream = recv
         .filter_map(|message| async {
             let Ok(message) = message else {
@@ -190,6 +216,26 @@ pub async fn new(url: impl IntoUrl) -> Result<impl MessageStream> {
             sender: message.sender,
             content: Some(message.content),
             donated: message.donated,
+        })
+        .take_until(async move {
+            loop {
+                sleep(Duration::from_secs(30)).await;
+                // this is wacky, but it theoretically should work :)
+                if KeepAlivePing
+                    .send(channel_id.as_str(), &mut send)
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+                if KeepAlivePong
+                    .send(channel_id.as_str(), &mut send)
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+            }
         })
         .boxed();
     Ok(stream)
