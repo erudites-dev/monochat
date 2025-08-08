@@ -19,14 +19,12 @@ public class MessageStream implements AutoCloseable, Iterable<Message> {
     private Thread pollingThread;
     private final Cleaner.Cleanable cleanable;
 
-    // Package-private constructor
     MessageStream(long streamId) {
         this.streamId = streamId;
         this.cleanable = cleaner.register(this, new StreamCleanupAction(streamId));
         startPolling();
     }
 
-    // Cleanup action that runs when the MessageStream is garbage collected
     private static class StreamCleanupAction implements Runnable {
         private final long streamId;
 

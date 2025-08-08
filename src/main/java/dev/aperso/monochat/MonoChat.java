@@ -30,9 +30,6 @@ public class MonoChat {
         }
     }
 
-    /**
-     * Extracts and loads the native library from the JAR to a temporary directory.
-     */
     private static void loadNativeLibrary() throws IOException {
         String osName = System.getProperty("os.name").toLowerCase();
         String osArch = System.getProperty("os.arch").toLowerCase();
@@ -153,7 +150,6 @@ public class MonoChat {
         }
     }
 
-    // Package-private method for MessageStream to get next message
     static Message getNextMessage(long streamId) {
         long messagePtr = nextMessage(streamId);
         if (messagePtr == 0) {
@@ -165,9 +161,8 @@ public class MonoChat {
         return new Message(messagePtr);
     }
 
-    // Package-private method for MessageStream to close stream
-    static boolean closeStreamInternal(long streamId) {
-        return closeStreamNative(streamId) == 0;
+    static void closeStreamInternal(long streamId) {
+        closeStreamNative(streamId);
     }
 
     // Native methods

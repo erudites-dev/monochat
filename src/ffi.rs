@@ -268,16 +268,12 @@ pub extern "system" fn Java_dev_aperso_monochat_MonoChat_closeStreamNative(
     _env: JNIEnv,
     _class: JClass,
     stream_id: jlong,
-) -> jint {
+) {
     let streams = get_streams();
     let mut streams_guard = streams.lock().unwrap();
 
     if let Some(handle) = streams_guard.remove(&(stream_id as u64)) {
         let _ = handle.sender.send(());
-        // The receiver will be dropped automatically
-        0 // Success
-    } else {
-        -1 // Invalid stream ID
     }
 }
 
